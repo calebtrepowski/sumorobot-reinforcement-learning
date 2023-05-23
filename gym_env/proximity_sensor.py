@@ -16,7 +16,6 @@ class ProximitySensor:
     status: bool
 
     def __init__(self, offset: Vec2d, angle_rad: float, range: float) -> None:
-
         self.RANGE = range
         self.OFFSET = offset
         self.ANGLE_RAD = angle_rad
