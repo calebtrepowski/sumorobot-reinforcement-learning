@@ -30,8 +30,7 @@ class SumoRobot:
     proximity_sensors: tuple[ProximitySensor]
     line_sensors: tuple[LineSensor]
 
-    def __init__(self, scale_factor: float) -> None:
-        self.side_length_scaled = SumoRobot.SIDE_LENGTH_MM*scale_factor
+    def __init__(self) -> None:
         moment = pm.moment_for_box(SumoRobot.MASS_KG,
                                    (SumoRobot.SIDE_LENGTH_MM, SumoRobot.SIDE_LENGTH_MM))
 
@@ -70,17 +69,16 @@ class SumoRobot:
             self.RIGHT_WHEEL_OFFSET)
 
     def initialize_line_sensors(self) -> None:
-        front_left_line_sensor = LineSensor(Vec2d(
-            SumoRobot.LINE_SENSOR_DISTANCE_FROM_CENTER_MM, SumoRobot.LINE_SENSOR_DISTANCE_FROM_CENTER_MM))
-        front_right_line_sensor = LineSensor(Vec2d(
-            SumoRobot.LINE_SENSOR_DISTANCE_FROM_CENTER_MM, -SumoRobot.LINE_SENSOR_DISTANCE_FROM_CENTER_MM))
-        back_right_line_sensor = LineSensor(Vec2d(
-            -SumoRobot.LINE_SENSOR_DISTANCE_FROM_CENTER_MM, -SumoRobot.LINE_SENSOR_DISTANCE_FROM_CENTER_MM))
-        back_left_line_sensor = LineSensor(Vec2d(
-            -SumoRobot.LINE_SENSOR_DISTANCE_FROM_CENTER_MM, SumoRobot.LINE_SENSOR_DISTANCE_FROM_CENTER_MM))
+        DISTANCE = SumoRobot.LINE_SENSOR_DISTANCE_FROM_CENTER_MM
+
+        front_left_line_sensor = LineSensor(Vec2d(DISTANCE, DISTANCE))
+        front_right_line_sensor = LineSensor(Vec2d(DISTANCE, -DISTANCE))
+        back_right_line_sensor = LineSensor(Vec2d(-DISTANCE, -DISTANCE))
+        back_left_line_sensor = LineSensor(Vec2d(-DISTANCE, DISTANCE))
 
         self.line_sensors = (front_left_line_sensor, front_right_line_sensor,
                              back_right_line_sensor, back_left_line_sensor)
+
         self.update_line_sensors_positions()
 
     def update_line_sensors_positions(self) -> None:
@@ -88,26 +86,28 @@ class SumoRobot:
             line_sensor.position = self.body.local_to_world(line_sensor.OFFSET)
 
     def initialize_proximity_sensors(self) -> None:
+        DISTANCE = SumoRobot.PROXIMITY_SENSOR_DISTANCE_FROM_CENTER_MM
+        RANGE = SumoRobot.PROXIMITY_SENSOR_RANGE_MM
+
         front_center_proximity_sensor = ProximitySensor(
-            Vec2d(SumoRobot.PROXIMITY_SENSOR_DISTANCE_FROM_CENTER_MM, 0), 0, SumoRobot.PROXIMITY_SENSOR_RANGE_MM)
+            Vec2d(DISTANCE, 0), 0, RANGE)
         front_left_proximity_sensor = ProximitySensor(
-            Vec2d(SumoRobot.PROXIMITY_SENSOR_DISTANCE_FROM_CENTER_MM, SumoRobot.PROXIMITY_SENSOR_DISTANCE_FROM_CENTER_MM), np.deg2rad(45), SumoRobot.PROXIMITY_SENSOR_RANGE_MM)
+            Vec2d(DISTANCE, DISTANCE), np.deg2rad(45), RANGE)
         left_proximity_sensor = ProximitySensor(
-            Vec2d(0, SumoRobot.PROXIMITY_SENSOR_DISTANCE_FROM_CENTER_MM), np.deg2rad(90), SumoRobot.PROXIMITY_SENSOR_RANGE_MM)
+            Vec2d(0, DISTANCE), np.deg2rad(90), RANGE)
         back_proximity_sensor = ProximitySensor(
-            Vec2d(-SumoRobot.PROXIMITY_SENSOR_DISTANCE_FROM_CENTER_MM,
-                  0), np.deg2rad(180), SumoRobot.PROXIMITY_SENSOR_RANGE_MM
-        )
+            Vec2d(-DISTANCE, 0), np.deg2rad(180), RANGE)
         right_proximity_sensor = ProximitySensor(
-            Vec2d(
-                0, -SumoRobot.PROXIMITY_SENSOR_DISTANCE_FROM_CENTER_MM), np.deg2rad(270), SumoRobot.PROXIMITY_SENSOR_RANGE_MM
-        )
+            Vec2d(0, -DISTANCE), np.deg2rad(270), RANGE)
         front_right_proximity_sensor = ProximitySensor(
-            Vec2d(SumoRobot.PROXIMITY_SENSOR_DISTANCE_FROM_CENTER_MM, -SumoRobot.PROXIMITY_SENSOR_DISTANCE_FROM_CENTER_MM), np.deg2rad(315), SumoRobot.PROXIMITY_SENSOR_RANGE_MM)
+            Vec2d(DISTANCE, -DISTANCE), np.deg2rad(315), RANGE)
 
         self.proximity_sensors = (front_center_proximity_sensor,
-                                  front_left_proximity_sensor, left_proximity_sensor, back_proximity_sensor, right_proximity_sensor, front_right_proximity_sensor
+                                  front_left_proximity_sensor, left_proximity_sensor,
+                                  back_proximity_sensor, right_proximity_sensor, front_right_proximity_sensor
                                   )
+
+        self.update_proximity_sensors_positions()
 
     def update_proximity_sensors_positions(self) -> None:
         robot_angle = self.body.angle

@@ -17,4 +17,15 @@ SUMO_DIMENSIONS = {
     "proximity_sensor_range_mm": 750
 }
 
+BOX_DIMENSIONS = {
+    "mass_kg": 3.0,
+    "side_length_mm": 200,
+}
+
+RING_DIMENSIONS = {
+    "inner_radius_mm": 720,
+    "border_width_mm": 50,
+
+}
+
 SPACE_DAMPING = 0.35

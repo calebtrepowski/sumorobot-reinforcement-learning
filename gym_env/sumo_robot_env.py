@@ -6,7 +6,7 @@ from pymunk.vec2d import Vec2d
 
 from .box import Box
 from .sumo_robot import SumoRobot
-from .constants import COLLISION_TYPES, SPACE_DAMPING
+from .constants import COLLISION_TYPES, SPACE_DAMPING, SCALE_FACTOR, RING_DIMENSIONS
 
 
 class SumoRobotEnv(gym.Env):
@@ -37,12 +37,11 @@ class SumoRobotEnv(gym.Env):
         "render_modes": ["human", "rgb_array"]
     }
 
-    SCALE_FACTOR = 1/3
-
-    RING_RADIUS_PX: int = int(720*SCALE_FACTOR)
-    RING_BORDER_WIDTH_PX: int = int(50*SCALE_FACTOR)
+    RING_RADIUS_PX: int = int(
+        RING_DIMENSIONS["inner_radius_mm"]*SCALE_FACTOR)
+    RING_BORDER_WIDTH_PX: int = int(
+        RING_DIMENSIONS["border_width_mm"]*SCALE_FACTOR)
     RING_TOTAL_RADIUS_PX = RING_RADIUS_PX + RING_BORDER_WIDTH_PX
-    BOX_SIDE_PX = int(200*SCALE_FACTOR)
 
     SCREEN_WIDTH_PX: int = 2*(RING_TOTAL_RADIUS_PX) + 50
     SCREEN_HEIGHT_PX: int = 2*(RING_TOTAL_RADIUS_PX) + 50
@@ -65,10 +64,10 @@ class SumoRobotEnv(gym.Env):
         self.space.gravity = (0, 0)
         self.space.damping = SPACE_DAMPING
 
-        self.robot = SumoRobot(SumoRobotEnv.SCALE_FACTOR)
+        self.robot = SumoRobot()
         self.reset_robot()
 
-        self.box = Box(SumoRobotEnv.SCALE_FACTOR)
+        self.box = Box()
         self.reset_box()
 
         self.space.add(self.robot.body, self.robot.shape)
@@ -212,32 +211,18 @@ class SumoRobotEnv(gym.Env):
         self._draw_rectangle(self.surface, self.robot.shape, ROBOT_COLOR)
         self._draw_rectangle(self.surface, self.box.shape, BOX_COLOR)
 
-        # # robot orientation
-        # pygame.draw.line(self.surface, SENSOR_RANGE_COLOR, self.robot.body.position,
-        #                  self.robot.body.position + 50*self.robot.body.rotation_vector, width=2)
-
         # wheels
         pygame.draw.circle(self.surface, WHEEL_COLOR,
                            self.robot.left_wheel_position, 4)
         pygame.draw.circle(self.surface, WHEEL_COLOR,
                            self.robot.right_wheel_position, 4)
 
-        # forces for each wheel
-        # pygame.draw.line(self.surface, SENSOR_RANGE_COLOR,
-        #                  self.robot.left_wheel_position,
-        #                  self.robot.left_wheel_position + self.robot.left_wheel_force,
-        #                  width=2)
-        # pygame.draw.line(self.surface, SENSOR_RANGE_COLOR,
-        #                  self.robot.right_wheel_position,
-        #                  self.robot.right_wheel_position + self.robot.right_wheel_force,
-        #                  width=2)
-
         # line sensors
         for line_sensor in self.robot.line_sensors:
             pygame.draw.circle(self.surface,
                                SENSOR_DETECTION_COLOR if line_sensor.status else SENSOR_RANGE_COLOR,
                                line_sensor.position,
-                               int(10)*SumoRobotEnv.SCALE_FACTOR)
+                               int(10)*SCALE_FACTOR)
         # proximity sensors
         for proximity_sensor in self.robot.proximity_sensors:
             pygame.draw.line(self.surface,

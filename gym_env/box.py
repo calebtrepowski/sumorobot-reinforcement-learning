@@ -1,28 +1,27 @@
 import pymunk as pm
 from pymunk.vec2d import Vec2d
 
-from .constants import COLLISION_TYPES
+from .constants import COLLISION_TYPES, BOX_DIMENSIONS, SCALE_FACTOR
 
 
 class Box:
     body: pm.Body
     shape: pm.Poly
 
-    MASS_KG: float = 1.5
-    SIDE_LENGTH_MM = 200
+    MASS_KG: float = BOX_DIMENSIONS["mass_kg"]*SCALE_FACTOR
+    SIDE_LENGTH_MM = BOX_DIMENSIONS["side_length_mm"]*SCALE_FACTOR
+
     FRICTION = 0.1
     ELASTICITY = 0.1
 
-    def __init__(self, scale_factor: float) -> None:
-        self.mass_scaled = Box.MASS_KG*scale_factor
-        self.side_length_scaled = Box.SIDE_LENGTH_MM*scale_factor
-        moment = pm.moment_for_box(self.mass_scaled,
-                                   (self.side_length_scaled, self.side_length_scaled))
+    def __init__(self) -> None:
+        moment = pm.moment_for_box(Box.MASS_KG,
+                                   (Box.SIDE_LENGTH_MM, Box.SIDE_LENGTH_MM))
 
-        self.body = pm.Body(self.mass_scaled, moment)
+        self.body = pm.Body(Box.MASS_KG, moment)
 
         self.shape = pm.Poly.create_box(self.body,
-                                        (self.side_length_scaled, self.side_length_scaled))
+                                        (Box.SIDE_LENGTH_MM, Box.SIDE_LENGTH_MM))
 
         self.shape.friction = Box.FRICTION
         self.shape.elasticity = Box.ELASTICITY
