@@ -4,51 +4,9 @@ import numpy as np
 import pymunk as pm
 from pymunk.vec2d import Vec2d
 
-
-class LineSensor:
-    position: Vec2d
-    OFFSET: Vec2d
-    status: bool
-
-    def __init__(self, offset: Vec2d) -> None:
-        self.OFFSET = offset
-        self.position = Vec2d(0, 0)
-        self.status = False
-
-
-COLLISION_TYPES = {
-    "robot": 1,
-    "box": 2,
-    "proximity_sensor": 3
-}
-
-
-class ProximitySensor:
-    body: pm.Body
-    shape: pm.Segment
-
-    start_point: Vec2d
-    end_point: Vec2d
-    RANGE: float
-    OFFSET: Vec2d
-    ANGLE_RAD: float
-    status: bool
-
-    def __init__(self, offset: Vec2d, angle_rad: float, range: float) -> None:
-
-        self.RANGE = range
-        self.OFFSET = offset
-        self.ANGLE_RAD = angle_rad
-        self.status = False
-
-        self.body = pm.Body(body_type=pm.Body.KINEMATIC)
-        self.shape = pm.Segment(self.body, Vec2d(
-            0, 0), Vec2d(self.RANGE, 0), radius=2)
-        self.shape.collision_type = COLLISION_TYPES["proximity_sensor"]
-        self.shape.sensor = True
-
-        self.start_point = self.shape.a
-        self.end_point = self.shape.b
+from .line_sensor import LineSensor
+from .proximity_sensor import ProximitySensor
+from .constants import COLLISION_TYPES
 
 
 class SumoRobot:
@@ -69,7 +27,6 @@ class SumoRobot:
 
     mass_scaled: float
     side_length_scaled: float
-    moment: float
 
     proximity_sensors: tuple[ProximitySensor]
     line_sensors: tuple[LineSensor]
@@ -77,10 +34,10 @@ class SumoRobot:
     def __init__(self, scale_factor: float) -> None:
         self.mass_scaled = SumoRobot.MASS_KG*scale_factor
         self.side_length_scaled = SumoRobot.SIDE_LENGTH_MM*scale_factor
-        self.moment = pm.moment_for_box(self.mass_scaled,
-                                        (self.side_length_scaled, self.side_length_scaled))
+        moment = pm.moment_for_box(self.mass_scaled,
+                                   (self.side_length_scaled, self.side_length_scaled))
 
-        self.body = pm.Body(self.mass_scaled, self.moment)
+        self.body = pm.Body(self.mass_scaled, moment)
 
         self.shape = pm.Poly.create_box(self.body,
                                         (self.side_length_scaled, self.side_length_scaled))
@@ -165,8 +122,7 @@ class SumoRobot:
                 proximity_sensor.OFFSET)
             proximity_sensor.end_point = self.body.local_to_world(
                 proximity_sensor.OFFSET + proximity_sensor.RANGE*local_rotation_vector)
-            proximity_sensor.body.position = proximity_sensor.start_point + \
-                (proximity_sensor.end_point - proximity_sensor.start_point)/2
+            proximity_sensor.body.position = proximity_sensor.start_point
             proximity_sensor.body.angle = proximity_sensor_angle
 
     def set_position(self, position: Vec2d, angle_rad: float = 0) -> None:
@@ -209,10 +165,10 @@ class Box:
     def __init__(self, scale_factor: float) -> None:
         self.mass_scaled = Box.MASS_KG*scale_factor
         self.side_length_scaled = Box.SIDE_LENGTH_MM*scale_factor
-        self.moment = pm.moment_for_box(self.mass_scaled,
-                                        (self.side_length_scaled, self.side_length_scaled))
+        moment = pm.moment_for_box(self.mass_scaled,
+                                   (self.side_length_scaled, self.side_length_scaled))
 
-        self.body = pm.Body(self.mass_scaled, self.moment)
+        self.body = pm.Body(self.mass_scaled, moment)
 
         self.shape = pm.Poly.create_box(self.body,
                                         (self.side_length_scaled, self.side_length_scaled))
