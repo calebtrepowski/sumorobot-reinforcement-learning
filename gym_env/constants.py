@@ -25,7 +25,6 @@ BOX_DIMENSIONS = {
 RING_DIMENSIONS = {
     "inner_radius_mm": 720,
     "border_width_mm": 50,
-
 }
 
 SPACE_DAMPING = 0.35

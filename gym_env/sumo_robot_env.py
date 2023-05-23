@@ -248,6 +248,13 @@ class SumoRobotEnv(gym.Env):
                 pygame.quit()
                 return
 
+    def close(self):
+        if self.screen is not None:
+            import pygame
+
+            pygame.display.quit()
+            pygame.quit()
+
     def _draw_rectangle(self, surface, shape, color) -> None:
         import pygame
 
