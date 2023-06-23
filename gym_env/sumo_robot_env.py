@@ -48,17 +48,24 @@ class SumoRobotEnv(gym.Env):
 
     RING_CENTER = Vec2d(int(SCREEN_WIDTH_PX/2), int(SCREEN_HEIGHT_PX/2))
 
-    def __init__(self, *, render_mode=None, for_training: bool = False) -> None:
+    def __init__(self, *, render_mode=None, for_training: bool = False, with_box: bool = True) -> None:
         super().__init__()
 
         self.render_mode = render_mode
         self.for_training = for_training
+        self.with_box = with_box
         self.screen = None
         self.clock = None
 
-        self.observation_space = spaces.MultiBinary(10)
-        self.action_space = spaces.Box(
-            low=-1.0, high=+1.0, shape=(2,), dtype=np.float32)
+        if self.with_box:
+            self.observation_space = spaces.MultiBinary(10)
+        else:
+            self.observation_space = spaces.MultiBinary(4)
+
+        actions_motor_1 = (-1, 0, 1)
+        actions_motor_2 = (-1, 0, 1)
+        self.action_space = spaces.MultiDiscrete(
+            (len(actions_motor_1), len(actions_motor_2)))
 
         self.space = pm.Space()
         self.space.gravity = (0, 0)
@@ -67,11 +74,11 @@ class SumoRobotEnv(gym.Env):
         self.robot = SumoRobot()
         self.reset_robot()
 
-        self.box = Box()
-        self.reset_box()
-
         self.space.add(self.robot.body, self.robot.shape)
-        self.space.add(self.box.body, self.box.shape)
+        if self.with_box:
+            self.box = Box()
+            self.reset_box()
+            self.space.add(self.box.body, self.box.shape)
 
         for proximity_sensor in self.robot.proximity_sensors:
             self.space.add(proximity_sensor.body, proximity_sensor.shape)
@@ -89,24 +96,19 @@ class SumoRobotEnv(gym.Env):
         self.num_iterations = 10  # Number of iterations per step
 
     def step(self, action: np.ndarray):
-        self.robot.step(
-            Vec2d(float(action[0]), float(action[1])))
+        converted_action = Vec2d(float(action[0] - 1), float(action[1] - 1))
+        print(converted_action)
+        self.robot.step(converted_action)
 
         for i in range(self.num_iterations):
+            self.robot.update_line_sensors_positions()
             self.space.step(self.dt)
 
         observation = np.array((*self.get_proximity_sensor_readings(),
                                *self.get_line_sensor_readings()), dtype=np.int0)
 
-        done = False
-        reward = 0
-
-        robot_position = self.robot.body.position
-        box_position = self.box.body.position
-
-        if np.linalg.norm(robot_position - SumoRobotEnv.RING_CENTER) > SumoRobotEnv.RING_TOTAL_RADIUS_PX or\
-                np.linalg.norm(box_position - SumoRobotEnv.RING_CENTER) > SumoRobotEnv.RING_TOTAL_RADIUS_PX:
-            done = True
+        done = self.check_done()
+        reward = self.calulate_reward(action=converted_action)
 
         if self.render_mode is not None:
             self.render(mode=self.render_mode)
@@ -120,11 +122,42 @@ class SumoRobotEnv(gym.Env):
 
         return observation, reward, done, truncated, info
 
+    def calulate_reward(self, **kwargs) -> float:
+        reward = 0
+
+        # encourage going front:
+        action = kwargs["action"]
+        if action[0] > 0 and action[1] > 0:
+            reward += 1
+
+        # penalize going to the borders:
+        for line_sensor in self.robot.line_sensors:
+            if line_sensor.status:
+                reward -= 10
+
+        # penalize falling:
+        if np.linalg.norm(self.robot.body.position - SumoRobotEnv.RING_CENTER) > SumoRobotEnv.RING_TOTAL_RADIUS_PX:
+            reward -= 50
+
+        return reward
+
+    def check_done(self) -> bool:
+        robot_position = self.robot.body.position
+        # box_position = self.box.body.position
+
+        if np.linalg.norm(robot_position - SumoRobotEnv.RING_CENTER) > SumoRobotEnv.RING_TOTAL_RADIUS_PX:
+            # or np.linalg.norm(box_position - SumoRobotEnv.RING_CENTER) > SumoRobotEnv.RING_TOTAL_RADIUS_PX:
+            return True
+
+        return False
+
     def get_proximity_sensor_readings(self) -> list[bool]:
         proximity_sensor_readings = [
             proximity_sensor.status for proximity_sensor in self.robot.proximity_sensors]
 
-        return proximity_sensor_readings
+        if self.with_box:
+            return proximity_sensor_readings
+        return []
 
     def get_line_sensor_readings(self) -> list[bool]:
         line_sensor_readings = []
@@ -147,7 +180,10 @@ class SumoRobotEnv(gym.Env):
         if self.render_mode is not None:
             self.render(mode=self.render_mode)
 
-        observation = np.array([False]*10, dtype=np.int0)
+        if self.with_box:
+            observation = np.array([False]*10, dtype=np.int0)
+        else:
+            observation = np.array([False]*4, dtype=np.int0)
 
         if self.for_training:
             return observation
@@ -161,9 +197,10 @@ class SumoRobotEnv(gym.Env):
             np.deg2rad(np.random.randint(0, 360)))
 
     def reset_box(self) -> None:
-        self.box.stop()
-        self.box.set_position(
-            self.generate_random_coordinate(), np.deg2rad(np.random.randint(0, 360)))
+        if self.with_box:
+            self.box.stop()
+            self.box.set_position(
+                self.generate_random_coordinate(), np.deg2rad(np.random.randint(0, 360)))
 
     def generate_random_coordinate(self) -> Vec2d:
         RING_RADIUS = SumoRobotEnv.RING_RADIUS_PX
@@ -209,7 +246,8 @@ class SumoRobotEnv(gym.Env):
             SumoRobotEnv.RING_BORDER_WIDTH_PX)
 
         self._draw_rectangle(self.surface, self.robot.shape, ROBOT_COLOR)
-        self._draw_rectangle(self.surface, self.box.shape, BOX_COLOR)
+        if self.with_box:
+            self._draw_rectangle(self.surface, self.box.shape, BOX_COLOR)
 
         # wheels
         pygame.draw.circle(self.surface, WHEEL_COLOR,
