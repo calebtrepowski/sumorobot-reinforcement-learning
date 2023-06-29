@@ -6,7 +6,6 @@ observation, info = env.reset()
 
 for i in range(1000):
     action = env.action_space.sample()
-    action = np.abs(action)
 
     observation, reward, terminated, truncated, info = env.step(action)
     print(observation)

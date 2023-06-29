@@ -12,7 +12,7 @@ from .constants import COLLISION_TYPES, SPACE_DAMPING, SCALE_FACTOR, RING_DIMENS
 class SumoRobotEnv(gym.Env):
     """
     Observation Space:
-        Type: MultiBinary(10)
+        Type: MultiBinary(8)
         Num    Observation
         0      Proximity Sensor: Front
         1      Proximity Sensor: Front Left
@@ -22,14 +22,14 @@ class SumoRobotEnv(gym.Env):
         5      Proximity Sensor: Front Right
         6      Line Sensor: Front Left
         7      Line Sensor: Front Right
-        8      Line Sensor: Back Right
-        9      Line Sensor: Back Left
 
     Action Space:
-        Type: Box(2)
-        Num    Action                       Min     Max
-        0      Move left motor/wheel        -1.0    1.0
-        1      Move right motor/wheel       -1.0    1.0
+        Type: Discrete(4)
+        Num    Action
+        0      Move forward
+        1      Move backward
+        2      Turn left
+        3      Turn right
     """
 
     metadata = {
@@ -48,6 +48,13 @@ class SumoRobotEnv(gym.Env):
 
     RING_CENTER = Vec2d(int(SCREEN_WIDTH_PX/2), int(SCREEN_HEIGHT_PX/2))
 
+    converted_actions = {
+        0: Vec2d(1, 1),
+        1: Vec2d(-1, -1),
+        2: Vec2d(-1, 1),
+        3: Vec2d(1, -1),
+    }
+
     def __init__(self, *, render_mode=None, for_training: bool = False, with_box: bool = True) -> None:
         super().__init__()
 
@@ -58,14 +65,11 @@ class SumoRobotEnv(gym.Env):
         self.clock = None
 
         if self.with_box:
-            self.observation_space = spaces.MultiBinary(10)
+            self.observation_space = spaces.MultiBinary(8)
         else:
-            self.observation_space = spaces.MultiBinary(4)
+            self.observation_space = spaces.MultiBinary(2)
 
-        actions_motor_1 = (-1, 0, 1)
-        actions_motor_2 = (-1, 0, 1)
-        self.action_space = spaces.MultiDiscrete(
-            (len(actions_motor_1), len(actions_motor_2)))
+        self.action_space = spaces.Discrete(4)
 
         self.space = pm.Space()
         self.space.gravity = (0, 0)
@@ -95,10 +99,9 @@ class SumoRobotEnv(gym.Env):
         self.dt = 1.0 / 60.0  # Time step for the physics simulation
         self.num_iterations = 10  # Number of iterations per step
 
-    def step(self, action: np.ndarray):
-        converted_action = Vec2d(float(action[0] - 1), float(action[1] - 1))
-        print(converted_action)
-        self.robot.step(converted_action)
+    def step(self, action: int):
+
+        self.robot.step(SumoRobotEnv.converted_actions[action])
 
         for i in range(self.num_iterations):
             self.robot.update_line_sensors_positions()
@@ -108,7 +111,7 @@ class SumoRobotEnv(gym.Env):
                                *self.get_line_sensor_readings()), dtype=np.int0)
 
         done = self.check_done()
-        reward = self.calulate_reward(action=converted_action)
+        reward = self.calulate_reward(action=action)
 
         if self.render_mode is not None:
             self.render(mode=self.render_mode)
@@ -125,19 +128,40 @@ class SumoRobotEnv(gym.Env):
     def calulate_reward(self, **kwargs) -> float:
         reward = 0
 
+        reward -= 1
+
         # encourage going front:
-        action = kwargs["action"]
-        if action[0] > 0 and action[1] > 0:
-            reward += 1
+        # action = kwargs["action"]
+        # if action == 0:
+        #     reward += 1
 
         # penalize going to the borders:
-        for line_sensor in self.robot.line_sensors:
-            if line_sensor.status:
-                reward -= 10
+        if not any(self.get_proximity_sensor_readings()):
+            for line_sensor in self.robot.line_sensors:
+                if line_sensor.status:
+                    reward -= 1
 
-        # penalize falling:
-        if np.linalg.norm(self.robot.body.position - SumoRobotEnv.RING_CENTER) > SumoRobotEnv.RING_TOTAL_RADIUS_PX:
-            reward -= 50
+        # target velocity
+        TARGET_VELOCITY = 30
+
+        action = kwargs["action"]
+        if action == 0:
+            velocity = np.linalg.norm(self.robot.body.velocity)
+            if velocity >= TARGET_VELOCITY:
+                reward += 3
+            else:
+                reward += velocity/TARGET_VELOCITY
+
+        # encourage seeing with front sensor
+        if self.robot.proximity_sensors[0].status:
+            reward += 2
+
+        if self.robot.proximity_sensors[3].status:
+            reward -= 2
+
+        # penalize falling without pushing out the box:
+        if np.linalg.norm(self.box.body.position - SumoRobotEnv.RING_CENTER) > SumoRobotEnv.RING_TOTAL_RADIUS_PX:
+            reward += 50
 
         return reward
 
@@ -180,10 +204,7 @@ class SumoRobotEnv(gym.Env):
         if self.render_mode is not None:
             self.render(mode=self.render_mode)
 
-        if self.with_box:
-            observation = np.array([False]*10, dtype=np.int0)
-        else:
-            observation = np.array([False]*4, dtype=np.int0)
+        observation = np.array([0]*self.observation_space.n, dtype=np.int0)
 
         if self.for_training:
             return observation

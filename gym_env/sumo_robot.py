@@ -73,11 +73,10 @@ class SumoRobot:
 
         front_left_line_sensor = LineSensor(Vec2d(DISTANCE, DISTANCE))
         front_right_line_sensor = LineSensor(Vec2d(DISTANCE, -DISTANCE))
-        back_right_line_sensor = LineSensor(Vec2d(-DISTANCE, -DISTANCE))
-        back_left_line_sensor = LineSensor(Vec2d(-DISTANCE, DISTANCE))
+        # back_right_line_sensor = LineSensor(Vec2d(-DISTANCE, -DISTANCE))
+        # back_left_line_sensor = LineSensor(Vec2d(-DISTANCE, DISTANCE))
 
-        self.line_sensors = (front_left_line_sensor, front_right_line_sensor,
-                             back_right_line_sensor, back_left_line_sensor)
+        self.line_sensors = (front_left_line_sensor, front_right_line_sensor)
 
         self.update_line_sensors_positions()
 
