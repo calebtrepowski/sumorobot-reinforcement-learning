@@ -55,11 +55,10 @@ class SumoRobotEnv(gym.Env):
         3: Vec2d(1, -1),
     }
 
-    def __init__(self, *, render_mode=None, for_training: bool = False, with_box: bool = True) -> None:
+    def __init__(self, *, render_mode=None, with_box: bool = True) -> None:
         super().__init__()
 
         self.render_mode = render_mode
-        self.for_training = for_training
         self.with_box = with_box
         self.screen = None
         self.clock = None
@@ -118,22 +117,15 @@ class SumoRobotEnv(gym.Env):
 
         info = {}
 
-        if self.for_training:
-            return observation, reward, done, info
-
-        truncated = False
-
-        return observation, reward, done, truncated, info
+        return observation, reward, done, info
 
     def calulate_reward(self, **kwargs) -> float:
+        action = kwargs["action"]
+
         reward = 0
 
+        # per time tick
         reward -= 1
-
-        # encourage going front:
-        # action = kwargs["action"]
-        # if action == 0:
-        #     reward += 1
 
         # penalize going to the borders:
         if not any(self.get_proximity_sensor_readings()):
@@ -141,10 +133,14 @@ class SumoRobotEnv(gym.Env):
                 if line_sensor.status:
                     reward -= 1
 
+        # encourage going front if not seeing with any proximity sensor and not in the line
+        # if not any(self.get_proximity_sensor_readings()) and not any(self.get_line_sensor_readings()):
+        #     if action == 0:
+        #         reward += 1
+
         # target velocity
         TARGET_VELOCITY = 30
 
-        action = kwargs["action"]
         if action == 0:
             velocity = np.linalg.norm(self.robot.body.velocity)
             if velocity >= TARGET_VELOCITY:
@@ -153,13 +149,22 @@ class SumoRobotEnv(gym.Env):
                 reward += velocity/TARGET_VELOCITY
 
         # encourage seeing with front sensor
-        if self.robot.proximity_sensors[0].status:
+        if self.robot.proximity_sensors[0].status and action == 0:
+            reward += 5
+
+        if (self.robot.proximity_sensors[1].status or self.robot.proximity_sensors[2].status) and action == 2:
             reward += 2
 
-        if self.robot.proximity_sensors[3].status:
-            reward -= 2
+        if (self.robot.proximity_sensors[4].status or self.robot.proximity_sensors[5].status) and action == 3:
+            reward += 2
 
-        # penalize falling without pushing out the box:
+        if self.robot.proximity_sensors[3].status and (action != 2 or action != 3):
+            reward -= 5
+
+        # penalize falling:
+        if np.linalg.norm(self.robot.body.position - SumoRobotEnv.RING_CENTER) > SumoRobotEnv.RING_TOTAL_RADIUS_PX and not np.linalg.norm(self.box.body.position - SumoRobotEnv.RING_CENTER) > SumoRobotEnv.RING_TOTAL_RADIUS_PX:
+            reward -= 50
+        
         if np.linalg.norm(self.box.body.position - SumoRobotEnv.RING_CENTER) > SumoRobotEnv.RING_TOTAL_RADIUS_PX:
             reward += 50
 
@@ -167,10 +172,9 @@ class SumoRobotEnv(gym.Env):
 
     def check_done(self) -> bool:
         robot_position = self.robot.body.position
-        # box_position = self.box.body.position
+        box_position = self.box.body.position
 
-        if np.linalg.norm(robot_position - SumoRobotEnv.RING_CENTER) > SumoRobotEnv.RING_TOTAL_RADIUS_PX:
-            # or np.linalg.norm(box_position - SumoRobotEnv.RING_CENTER) > SumoRobotEnv.RING_TOTAL_RADIUS_PX:
+        if np.linalg.norm(robot_position - SumoRobotEnv.RING_CENTER) > SumoRobotEnv.RING_TOTAL_RADIUS_PX or np.linalg.norm(box_position - SumoRobotEnv.RING_CENTER) > SumoRobotEnv.RING_TOTAL_RADIUS_PX:
             return True
 
         return False
@@ -206,10 +210,7 @@ class SumoRobotEnv(gym.Env):
 
         observation = np.array([0]*self.observation_space.n, dtype=np.int0)
 
-        if self.for_training:
-            return observation
-        info = {}
-        return observation, info
+        return observation
 
     def reset_robot(self) -> None:
         self.robot.stop()

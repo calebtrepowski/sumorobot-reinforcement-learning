@@ -2,15 +2,15 @@ import numpy as np
 from gym_env import SumoRobotEnv
 
 env = SumoRobotEnv(render_mode="human")
-observation, info = env.reset()
+observation = env.reset()
 
 for i in range(1000):
     action = env.action_space.sample()
 
-    observation, reward, terminated, truncated, info = env.step(action)
-    print(observation)
+    observation, reward, terminated, info = env.step(action)
 
-    if terminated or truncated:
-        observation, info = env.reset()
+    if terminated:
+        observation = env.reset()
+
 
 env.close()
