@@ -2,6 +2,8 @@
 
 Implementation of SumoRobot environment, based on gymnasium environments. Used for training Q-Learning agent.
 
+Here's a video with a [brief explanation](https://drive.google.com/file/d/1wHPZuSuSTWI5oXTYQdpZJnSSTL_iFj8B/view?usp=drive_link).
+
 ## Environment Description
 
 Observation Space: `MultiBinary(8)`. 6 proximity sensors, 2 line sensors.
